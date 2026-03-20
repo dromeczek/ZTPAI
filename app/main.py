@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Query, Depends, HTTPException
+from fastapi import FastAPI, Query, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-
+from app.schemas.product import ProductCreate
 from app.database import Base, engine, SessionLocal
 from app.models.product import Product
 
@@ -54,6 +54,7 @@ def get_all_records(encja: str, db: Session = Depends(get_db)):
 
     records = db.query(model).all()
     return records
+
 @app.get("/api/{encja}/{id}")
 def get_record_by_id(encja: str, id: int, db: Session = Depends(get_db)):
     model = MODELS.get(encja)
@@ -67,3 +68,34 @@ def get_record_by_id(encja: str, id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Rekord nie istnieje")
 
     return record
+@app.post("/api/{encja}")
+def create_record(encja: str, data: dict = Body(...), db: Session = Depends(get_db)):
+    model = MODELS.get(encja)
+
+    if not model:
+        raise HTTPException(status_code=404, detail="Encja nie istnieje")
+
+    new_record = model(**data)
+
+    db.add(new_record)
+    db.commit()
+    db.refresh(new_record)
+
+    return new_record
+
+@app.delete("/api/{encja}/{id}")
+def delete_record(encja: str, id: int, db: Session = Depends(get_db)):
+    model = MODELS.get(encja)
+
+    if not model:
+        raise HTTPException(status_code=404, detail="Encja nie istnieje")
+
+    record = db.query(model).filter(model.id == id).first()
+
+    if not record:
+        raise HTTPException(status_code=404, detail="Rekord nie istnieje")
+
+    db.delete(record)
+    db.commit()
+
+    return {"message": "Rekord usunięty poprawnie"}

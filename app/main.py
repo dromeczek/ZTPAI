@@ -1,24 +1,29 @@
-from fastapi import FastAPI, Query, Depends
+from fastapi import FastAPI, Query, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import Base, engine, SessionLocal
 from app.models.product import Product
+
+app = FastAPI(
+    title="Hello Business",
+    version="1.0.0",
+)
+
+AUTHOR = "Igor Drohomirecki"
+FRAMEWORK = "FastAPI"
+
+MODELS = {
+    "products": Product,
+}
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-app = FastAPI(
-    title="Hello Business",
-    version="1.0.0",
-)
-
 
 Base.metadata.create_all(bind=engine)
-
-AUTHOR = "Igor Drohomirecki"
-FRAMEWORK = "FastAPI"
 
 @app.get("/hello")
 def hello():
@@ -39,7 +44,26 @@ def info():
         "framework": FRAMEWORK,
         "wersja_aplikacji": app.version,
     }
-@app.get("/api/products")
-def get_products(db: Session = Depends(get_db)):
-    products = db.query(Product).all()
-    return products
+
+@app.get("/api/{encja}")
+def get_all_records(encja: str, db: Session = Depends(get_db)):
+    model = MODELS.get(encja)
+
+    if not model:
+        raise HTTPException(status_code=404, detail="Encja nie istnieje")
+
+    records = db.query(model).all()
+    return records
+@app.get("/api/{encja}/{id}")
+def get_record_by_id(encja: str, id: int, db: Session = Depends(get_db)):
+    model = MODELS.get(encja)
+
+    if not model:
+        raise HTTPException(status_code=404, detail="Encja nie istnieje")
+
+    record = db.query(model).filter(model.id == id).first()
+
+    if not record:
+        raise HTTPException(status_code=404, detail="Rekord nie istnieje")
+
+    return record
